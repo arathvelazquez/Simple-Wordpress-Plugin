@@ -1,0 +1,129 @@
+Como crear un plugin sencillo para Wordpress [Parte 1]
+
+Wordpress es un sistema de gestión de contenido (CMS por sus siglas en Ingles) que se distribuye y desarrolla libremente como código abierto, esto quiere decir que el código con el que fue creado es accesible para todos los usuarios y que los desarrolladores puedan implementar sus propias soluciones. 
+Esto ha permitido un crecimiento importante en todos los aspectos y por eso mismo, en la actualidad Wordpress cuenta con una de las mas importantes colecciones de plugins [Link: http://wordpress.org/extend/plugins/ ] o complementos para utilizar.
+
+	Un plugin como tal, es una aplicación que aporta una nueva funcionalidad al sistema y que por lo general es muy específica.
+
+En Wordpress, la verdad es muy sencillo encontrar un plugin que cumpla una determinada función, y para entender su funcionamiento, en este artículo veremos como crear uno desde cero.
+
+En esta primera parte, el plugin permitirá enviar a nuestro usuario de twitter, un pequeño texto, el nombre del post y el link del post. Algo interesante, es que el link o URI (muchos les llamamos URL también), será "acortada" usando una sencilla API de un acortador de URLs creada por Rodrigo Polo [Link: http://www.rodrigopolo.com ] .
+
+Generalidades de los plugins en Wordpress.
+
+Todos los plugins para Wordpress son creados con PHP y pueden agregar funcionalidad y diseño con JavaScript, CSS entre otras herramientas.
+
+Los plugins deben de ser creados dentro de la carpeta "wp-content/plugins". 
+
+Si el plugin, solo requiere un archivo, lo puedes dejar en el directorio de plugins, pero por lo general y por buenas practicas, se debe optar por crear una carpeta independiente con el nombre del plugin. Aparte de buenas practicas, esto nos dará oportunidad de organizar los archivos de una manera sencilla.
+
+El archivo PHP principal, deberá tener el mismo nombre del plugin.
+
+Wordpress tiene la funcionalidad de leer los archivos y reconocer cabeceras que determinan que tipo de elementos es. Esto aplica para las hojas de estilo, las páginas, los plugins y otros elementos más.
+
+Por lo tanto, los plugins deben de contar con una cabecera que identifica el nombre del plugin, descripción e información adicional.
+
+Plantilla general para el plugin.
+Lo más básico es crear la cabecera con la información principal dentro de nuestra carpeta que llamaré updatter:
+
+<?php
+/*
+Plugin Name: Updatter
+Plugin URI: http://arathvelazquez.com/updatter
+Description: Actualiza tu estado en twitter con el ultimo post que publiques.
+Version: 0.1
+Author: Arath Velázquez
+Author URI: http://www.arathvelazquez.com
+*/
+?>
+
+Guarda el archivo con el nombre updatter.php en la carpeta del plugin:
+[Imagen: ruta_carpetas.png]
+
+Una vez realizado estos sencillos pasos, ya tienes un plugin que ya puede ser activado desde la consola de administración:
+[Imagen: plugin_en_admon.png]
+
+
+Funcionalidad básica del plugin.
+
+Como les comentaba anteriormente, el plugin nos permitirá crear y enviar un post a nuestra cuenta de twitter.
+Para eso, crearemos una función en el mismo archivo antes guardado.
+
+La funcion la llamaremos updatter:
+
+function updatter(){
+	global $wp_query;
+	$nombreDelPost = $wp_query->post->post_title;
+	$urlDelPost = get_permalink($post->ID);
+	$preTexto = "Desde el blog: ";
+	$urlCompleta = "http://rod.gs/?longurl=".$urlDelPost;
+	$urlAcortada = curling($urlCompleta);
+	$comentario = $preTexto.$nombreDelPost. " " .$urlAcortada;
+	
+	//=======
+	//Mas adelante, en este espacio escribiremos algo extra.	
+	//=======
+}
+
+En la función, simplemente obtenemos el titulo del post, el link o URI, tenemos un texto que los precede. También incluí de una vez una función que implementaremos en los siguientes párrafos, para no repetir código mas adelante.
+
+Si se fijan, $urlDelPost tiene la dirección completa del post, que por lo regular es bastante extensa y para fines prácticos, entre menos letras usemos para comentar en twitter, mucho mejor.
+
+Lo que vamos a hacer, es simplemente utilizar una función muy sencilla y la llamaremos <i>curling</i>. Esta función lo que hace es recibir una URL y devolvernos el contenido como una cadena.
+
+function curling($url){
+	$ch = curl_init(); 				//Iniciamos cURL
+        	curl_setopt($ch, CURLOPT_URL, $url); 		// Le pasamos la dirección como parametro y la "seteamos".
+        	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);  //Obtenemos la transferencia como una cadena
+        	$output = curl_exec($ch); 			// Y ahora le asignamos  a $output, el valor como cadena
+        	curl_close($ch); 					// Cerramos y liberamos los recursos
+	return $output;					// Y finalmente, la función nos regresa el resultado. 
+	}
+
+Ya con esto y con ayuda del API de Rodrigo Polo, tenemos un link bastante corto y que no pasará de 20 caracteres. El resultado lo tenemos en $urlAcortada y ahora, simplemente creamos el comentario completo que vamos a postear.
+
+A continuación, vamos a crear un div para agregarlo a nuestro blog, la idea de este plugin, es que vaya al final del listado de post y al final de cada post. Para eso escribimos al final de la función updatter lo siguiente:
+
+	$divTweet = 
+		'<div id="updatter" style="padding:10px;">
+			<a href="http://twitter.com/home?status=' . $comentario . '" title="Com&eacute;ntalo en twitter" target="_blank">
+				<img src="http://twitter-badges.s3.amazonaws.com/twitter-a.png" alt="Comentalo en twitter"/>
+			</a>
+		</div>';
+	
+	if (is_single() || is_home()){ 
+		echo $content.$divTweet;
+		}
+	else {
+		echo $content;
+	}
+
+Con esto creamos lo que vamos a ver en los post y ademas le decimos, que solo se va a imprimir en cada post y en el listado de los post. Si la página en la que nos encontramos, es alguna de las dos opciones,  imprimimos el contenido y concatenamos el divTweet, y si no, solo imprimimos el contenido.
+
+Ya con esto, tenemos la funcionalidad completa del plugin.
+
+Colocando el plugin en su lugar.
+
+Hasta ahorita, el plugin por si solo ya tiene lo necesario para funcionar, solo resta decirle en donde lo vamos a colocar. A lo que me refiero con esto, es que en Wordpress, podemos agregar filtros o acciones a determinadas secciones. Por ejemplo, podríamos agregar una acción al momento en que publicamos un nuevo post o al momento de comentar. Se puede agregar una acción o filtro a casi cualquier sección de Wordpress.
+
+Entonces, lo que nos resta a nosotros para terminar, es decirle que vamos a agregar las operaciones del plugin al contenido de la siguiente manera (debe estar colocado dentro del plugin y afuera de todas las funciones):
+
+add_action('the_content','updatter');
+
+Con esto, le decimos que el plugin tenga efecto en el contenido del post y ya quedó en su sitio.
+
+Espero que encuentren práctico este artículo para estudiar y crear sus propios plugins en Wordpress.
+
+
+Referencias:
+
+http://www.php.net/manual/en/curl.examples-basic.php
+
+
+
+http://twitter.com/goodies/buttons
+
+
+
+
+
